@@ -5,6 +5,7 @@
 /backend/tmp
 /backend/coverage
 /backend/.DS_Store
+
 /frontend/node_modules
 /frontend/.env
 /frontend/dist
