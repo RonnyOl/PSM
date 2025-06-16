@@ -1,4 +1,4 @@
-import { getMessageById, getMessages, createMessage} from "../models/Messages";
+import { getMessageById, getMessages, createMessage} from '../repositories/messageRepo';
 
 
 
@@ -38,7 +38,6 @@ const sendMessage = async (req: any, res: any) => {
     res.status(500).json({ message: 'Error en el servidor.' });
   }
 };
-
 
 export const messageController = {
     getMessagesByConversation,

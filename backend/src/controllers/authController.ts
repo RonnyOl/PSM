@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { createUser, findUserByEmail } from '../models/User';
 import dotenv from 'dotenv';
+import { registerUser, findUserByEmail } from '../services/userService';
 
 dotenv.config();
 
 // Elimina los tipos de retorno Promise<Response> o Response
-const registerUser = async (req: Request, res: Response, next: NextFunction) => {
+const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { username, email, password } = req.body;
     if (!username || !email || !password) {
@@ -22,7 +22,7 @@ const registerUser = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = await createUser({ username, email, password: hashedPassword });
+    const newUser = await registerUser({ username, email, password: hashedPassword });
 
     if (!newUser) {
       res.status(500).json({ message: 'Error al crear el usuario.' });
@@ -129,7 +129,7 @@ const getUserInfo = async (req: Request, res: Response, next: NextFunction) => {
 }
 
 export const authController = {
-  registerUser,
+  register,
   loginUser,
   getUserInfo
 };

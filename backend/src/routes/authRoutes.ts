@@ -7,7 +7,7 @@ const authRoutes = Router();
 authRoutes.post("/login", authController.loginUser);
 
 // POST /api/auth/register
-authRoutes.post("/register", authController.registerUser);
+authRoutes.post("/register", authController.register);
 
 authRoutes.get('/me', authController.getUserInfo);
 

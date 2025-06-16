@@ -1,7 +1,7 @@
 
 import {Request, Response} from 'express';
 
-import { getConversationsByUser, getConversationById, createConversation } from '../models/Conversation';
+import { createConversation, getConversationsByUser, getConversationWithMessagesAndUser } from '../services/conversationService';
 
 
 
@@ -16,22 +16,54 @@ const getConversationOfUser = async (req: Request, res: Response) => {
     return;
 };
 
-const startConversation = async(req: Request, res: Response) => {
-    const { userId, userId2} = req.body;
-    if (!userId || !userId2) {
-        res.status(400).json({ message: 'Faltan datos.' });
-        return;
+const getConversation = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { limit } = req.query;
+  const conversation = await getConversationWithMessagesAndUser(id, Number(limit));
+
+  if (!conversation) {
+     res.status(404).json({ message: 'Conversation not found' });
+     return
+  }
+
+   res.status(200).json({
+    message: 'Conversation retrieved successfully',
+    data: {
+      id: conversation.id,
+      user1_id: conversation.user1_id,
+      user2_id: conversation.user2_id,
+      users: conversation.users,
+      messages: conversation.messages,
+    },
+  });
+  return
+};
+
+
+export const startConversation = async (req: Request, res: Response) => {
+  const { userId, userId2 } = req.body;
+
+  if (!userId || !userId2) {
+     res.status(400).json({ message: "Faltan datos." });
+    return
     }
-    const conversationCreated = await createConversation({
-        user1_id: userId,
-        user2_id: userId2
-    });
+
+  try {
+    const conversationCreated = await createConversation(userId, userId2);
     
     res.status(201).json(conversationCreated);
-    return;
-}
-
-export const conversationController = {
-    getConversationOfUser,
-    startConversation
+    return
+} catch (error) {
+    console.error("Error al crear conversación:", error);
+     res.status(500).json({ message: "Error interno del servidor." });
+    return
+    }
 };
+
+const conversationController = {
+  getConversationOfUser,
+  startConversation,
+  getConversation,
+};
+
+export default conversationController;
