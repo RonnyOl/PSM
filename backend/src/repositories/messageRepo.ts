@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Message } from '../models/Message';
 
 // Obtener mensajes por conversación
-export const getMessages = async (conversation_id: string, limit: number) => {
+export const getMessages = async (conversation_id: string, limit: number, before: Date) => {
   const [rows] = await pool.query(
     'SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp DESC LIMIT ?',
     [conversation_id, limit]
@@ -27,7 +27,17 @@ export const createMessage = async (message: Omit<Message, 'id' | 'timestamp'>) 
   return { id, ...message, timestamp: new Date() };
 };
 
-export const getMessagesByConversationId = async (conversation_id: string, limit: number) => {
-  const [rows] = await pool.query('SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp DESC LIMIT ?', [conversation_id, limit]);
+export const getMessagesByConversationId = async (conversation_id: string, limit: number , before?: Date) => {
+  if (!limit || limit <= 0) {
+    limit = 10; // Valor por defecto si no se especifica o es inválido
+  }
+  const [rows] = await pool.query(
+  before
+    ? 'SELECT * FROM messages WHERE conversation_id = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT ?'
+    : 'SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp DESC LIMIT ?',
+  before
+    ? [conversation_id, before, limit]
+    : [conversation_id, limit]
+);
   return rows as Message[];
 }

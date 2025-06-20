@@ -1,7 +1,7 @@
 
 import {Request, Response} from 'express';
 
-import { createConversation, getConversationsByUser, getConversationWithMessagesAndUser } from '../services/conversationService';
+import { createConversation, getConversationsByUser, getConversationWithUsers } from '../services/conversationService';
 
 
 
@@ -18,8 +18,8 @@ const getConversationOfUser = async (req: Request, res: Response) => {
 
 const getConversation = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { limit } = req.query;
-  const conversation = await getConversationWithMessagesAndUser(id, Number(limit));
+
+  const conversation = await getConversationWithUsers(id);
 
   if (!conversation) {
      res.status(404).json({ message: 'Conversation not found' });
@@ -33,7 +33,6 @@ const getConversation = async (req: Request, res: Response) => {
       user1_id: conversation.user1_id,
       user2_id: conversation.user2_id,
       users: conversation.users,
-      messages: conversation.messages,
     },
   });
   return

@@ -4,8 +4,8 @@ import {Message} from '../models/Message';
 
 
 
-export const getMessagesByConversation = async (conversationId: string, limit: number) => {
-    return await getMessagesByConversationId(conversationId, limit);
+export const getMessagesByConversation = async (conversationId: string, limit: number, before?: Date) => {
+    return await getMessagesByConversationId(conversationId, limit, before);
 }
 
 export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp'>) => {

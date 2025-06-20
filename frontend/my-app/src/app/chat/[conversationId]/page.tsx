@@ -1,106 +1,166 @@
-"use client";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { useSocket } from "@/hooks/useSocket";
-import api from "@/lib/api"; 
+/* eslint-disable react-hooks/exhaustive-deps */
+"use client"
 
-interface Message {
-  id: string;
-  sender_id: string;
-  message_text: string;
-}
+import { useEffect, useRef, useState } from "react"
+import { useParams } from "next/navigation"
+import { useSocket } from "@/hooks/useSocket"
+import api from "@/lib/api"
+import { useChatMessages } from "@/hooks/useChatMessages"
+import { Message } from "@/models/Message"
 
 interface User {
-  id: string;
-  username: string;
-  email?: string;
+  id: string
+  username: string
 }
 
 export default function ChatPage() {
-  // === Estados ===
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [user, setUser] = useState<User | null>(null);
-  // === Hooks ===
-  const socketRef = useSocket();
-  const { conversationId } = useParams();
+  const { conversationId } = useParams()
+  const socketRef = useSocket()
 
-  // === Funciones ===
-  const fetchConversation = async () => {
-    try {
-      const res = await api.get(`/conversations/conversation/${conversationId}`);
-      console.log("Conversación obtenida:", res.data);
-      return setMessages(res.data.data?.messages || []);
-    } catch (error) {
-      console.error("Error al obtener conversación", error);
-    }
+  const [user, setUser] = useState<User | null>(null)
+  const [userTyping, setUserTyping] = useState<string | null>(null)
+  const [newMessage, setNewMessage] = useState("")
+  const [userMap, setUserMap] = useState<Record<string, User>>({})
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isFetchingRef = useRef(false)
+
+  const { messages, fetchMessages, addMessage } = useChatMessages(
+    conversationId as string
+  )
+
+  // 🔹 Emitir que se está escribiendo
+  const handleWriting = () => {
+    if (!user) return
+    socketRef.current?.emit("writing", {
+      conversationId,
+      userId: user.id,
+    })
   }
 
-  const fetchUser = async () => {
-    try {
-      const res = await api.get("/user/me");
-      setUser(res.data);
-    } catch (error) {
-      console.error("No autenticado o error al obtener usuario", error);
-    }
-  };
-
+  // 🔹 Enviar mensaje
   const sendMessage = async () => {
-    if (!user || newMessage.trim() === "") return;
+    if (!user || newMessage.trim() === "") return
 
-    const messageData = {
+    const msg = {
       conversation_id: conversationId,
       sender_id: user.id,
       message_text: newMessage,
-    };
-
-    try {
-      await api.post("/messages/send", messageData);
-
-      const socket = socketRef.current;
-      if (socket) {
-        socket.emit("sendMessage", messageData);
-      }
-
-      setNewMessage("");
-    } catch (error) {
-      console.error("Error al enviar mensaje", error);
     }
-  };
 
-  // === Efectos ===
+    const { data: savedMessage } = await api.post("/messages/send", msg)
+    socketRef.current?.emit("sendMessage", savedMessage)
+    setNewMessage("")
+  }
 
+  // 🔹 Manejo de scroll infinito hacia arriba
   useEffect(() => {
-    fetchUser();
-    fetchConversation();
-  }, [conversationId]);
+    const container = containerRef.current
+    if (!container) return
 
+    const handleScroll = async () => {
+      if (isFetchingRef.current) return
+      if (container.scrollTop === 0 && messages.length > 0) {
+        const oldest = messages[0]
+        const before = oldest.timestamp
+        const prevHeight = container.scrollHeight
+
+        await fetchMessages(before)
+
+        requestAnimationFrame(() => {
+          const newHeight = container.scrollHeight
+          container.scrollTop = newHeight - prevHeight
+        })
+      }
+    }
+
+    container.addEventListener("scroll", handleScroll)
+    return () => container.removeEventListener("scroll", handleScroll)
+  }, [messages])
+
+  // 🔹 Obtener usuario, participantes y mensajes iniciales
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
+    const fetchInitialData = async () => {
+      const [userRes, convRes] = await Promise.all([
+        api.get("/user/me"),
+        api.get(`/conversations/conversation/${conversationId}/`),
+      ])
 
-    socket.emit("joinConversation", conversationId);
+      setUser(userRes.data)
 
-    const handleNewMessage = (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
-    };
+      const map: Record<string, User> = {}
+      convRes.data.data.users.forEach((u: User) => {
+        map[u.id] = u
+      })
+      setUserMap(map)
 
-    socket.on("newMessage", handleNewMessage);
+      await fetchMessages()
+    }
+
+    fetchInitialData()
+  }, [conversationId])
+
+  // 🔹 Socket: unión a la conversación y recepción de mensajes
+  useEffect(() => {
+    const socket = socketRef.current
+    if (!socket) return
+
+    socket.emit("joinConversation", conversationId)
+
+    const handleNewMessage = (msg: Message) => addMessage(msg)
+    socket.on("newMessage", handleNewMessage)
 
     return () => {
-      socket.off("newMessage", handleNewMessage);
-    };
-  }, [socketRef, conversationId]);
+      socket.off("newMessage", handleNewMessage)
+    }
+  }, [socketRef, conversationId])
 
-  // === Render ===
+  // 🔹 Socket: detección de "escribiendo"
+  useEffect(() => {
+    const socket = socketRef.current
+    if (!socket) return
+
+    const handleUserWriting = ({ userId }: { userId: string }) => {
+      if (userId !== user?.id) {
+        setUserTyping(userMap[userId]?.username || "Alguien")
+        setTimeout(() => setUserTyping(null), 3000)
+      }
+    }
+
+    socket.on("userWriting", handleUserWriting)
+    return () => {
+      socket.off("userWriting", handleUserWriting)
+    }
+  }, [socketRef, user, userMap])
+
+  // 🔹 Render
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p>No estás autenticado</p>
+      </div>
+    )
+  }
 
   return (
-    user ? (
-      <div className="p-4 max-w-xl mx-auto">
-      <div className="border h-96 overflow-y-scroll mb-4 p-2">
+    <div className="p-4 max-w-xl mx-auto">
+      {userTyping && (
+        <div className="text-sm text-gray-500 italic mb-1">
+          {userTyping} está escribiendo...
+        </div>
+      )}
+
+      <div
+        ref={containerRef}
+        className="h-96 overflow-y-scroll border p-2 mb-4"
+      >
         {messages.map((msg) => (
-          <div key={msg.id} className="mb-2">
-            <b>{msg.sender_id}</b>: {msg.message_text}
+          <div key={msg.id} className="mb-1">
+            <p className="font-semibold">{userMap[msg.sender_id]?.username}</p>
+            <p>{msg.message_text}</p>
+            <div className="text-xs text-gray-500">
+              {new Date(msg.timestamp).toLocaleTimeString()}
+            </div>
           </div>
         ))}
       </div>
@@ -111,21 +171,18 @@ export default function ChatPage() {
           className="border p-2 flex-1"
           placeholder="Escribe un mensaje..."
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          disabled={!user}
+          onChange={(e) => {
+            setNewMessage(e.target.value)
+            handleWriting()
+          }}
         />
         <button
           onClick={sendMessage}
-          className="bg-green-500 text-white px-4 py-2 rounded"
-          disabled={!user || newMessage.trim() === ""}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
         >
           Enviar
         </button>
       </div>
     </div>
-    ) : (
-      <div className="flex items-center justify-center h-screen">
-        <p>No estás autenticado. Por favor, inicia sesión.</p>
-      </div>
-  ))
+  )
 }

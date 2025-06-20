@@ -3,7 +3,23 @@ import { Conversation } from '../models/Conversation';
 import {v4 as uuidv4} from 'uuid';
 
 export const getConversationsByUserDB = async (userId: string): Promise<Conversation[]> => {
-  const [rows] = await pool.query('SELECT * FROM conversations WHERE user1_id = ? OR user2_id = ?', [userId, userId]);
+   const [rows] = await pool.query(
+    `
+    SELECT 
+      c.id,
+      c.user1_id,
+      c.user2_id,
+      u.id AS other_user_id,
+      u.username AS other_username
+    FROM conversations c
+    JOIN users u ON u.id = CASE
+      WHEN c.user1_id = ? THEN c.user2_id
+      ELSE c.user1_id
+    END
+    WHERE c.user1_id = ? OR c.user2_id = ?
+    `,
+    [userId, userId, userId]
+  );
   return rows as Conversation[];
 };
 

@@ -17,3 +17,5 @@
 /frontend/.nuxtignore
 /frontend/.nuxt-lock.json
 /frontend/.nuxt-generate
+
+.prettierrc

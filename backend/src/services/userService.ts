@@ -1,5 +1,5 @@
 import {User} from '../models/User';
-import {getUserByEmail, getUserById, createUser} from '../repositories/userRepo';
+import {getUserByEmail, getUserById, createUser, getUsersByConversationId} from '../repositories/userRepo';
 
 export const getUsers = async () => {
 
@@ -15,4 +15,8 @@ export const findUserByEmail = async (email: string) => {
 
 export const registerUser = async (user: Omit<User, 'id' | 'createdAt'>) => {
    return await createUser(user);
+}
+
+export const getUsersInfoByConversationId = async (conversationId: string) => {
+   return await getUsersByConversationId(conversationId);
 }

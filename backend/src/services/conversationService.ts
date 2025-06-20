@@ -1,18 +1,15 @@
 import { Conversation, FullConversation } from "../models/Conversation";
 import { createConversationDB, getConversationBetweenUsers, getConversationByIdDB, getConversationsByUserDB } from "../repositories/conversationRepo";
-import { getMessagesByConversationId } from "../repositories/messageRepo";
 import { getUsersByConversationId } from "../repositories/userRepo";
 
 
-export const getConversationWithMessagesAndUser = async (id: string, limit: number) : Promise<FullConversation | null> => {
+export const getConversationWithUsers = async (id: string) : Promise<FullConversation | null> => {
   const conversation = await getConversationByIdDB(id);
   if (!conversation) return null;
 
-  const messages = await getMessagesByConversationId(id, limit);
   const users = await getUsersByConversationId(id);
   return {
     ...conversation,
-    messages,
     users
   };
 };

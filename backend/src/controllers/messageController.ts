@@ -1,16 +1,19 @@
 import { getMessageById, getMessages, createMessage} from '../repositories/messageRepo';
+import { getMessagesByConversation } from '../services/messageService';
 
 
-
-const getMessagesByConversation = async (req: any, res: any) => {
+const getMessagesByConversationPaginated = async (req: any, res: any) => {
     const { conversationId } = req.params;
+    const limit = parseInt(req.query.limit) || 10; // Valor por defecto
+    const before = req.query.before ? new Date(req.query.before) : undefined;
+    
     if (!conversationId) {
         res.status(400).json({ message: 'Falta el ID de la conversación.' });
         return;
     }
 
     try {
-        const messages = await getMessages(conversationId);
+        const messages = await getMessagesByConversation(conversationId, limit, before);
         res.json(messages);
         return
     } catch (error) {
@@ -39,7 +42,8 @@ const sendMessage = async (req: any, res: any) => {
   }
 };
 
+
 export const messageController = {
-    getMessagesByConversation,
+    getMessagesByConversationPaginated,
     sendMessage
 };

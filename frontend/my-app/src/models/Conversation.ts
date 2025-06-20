@@ -5,7 +5,8 @@ export interface Conversation {
   id: string;
   user1_id: string;
   user2_id: string;
-  users?: User[];
+  other_username?: string;
+  other_user_id?: string;
 }
 
 export interface FullConversation extends Conversation {
